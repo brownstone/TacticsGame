@@ -163,19 +163,19 @@ public class BoardManager : MonoBehaviour {
                 if (_selectedPiece == null)
                 {
                     // select
-                    SelectPiece(_selectionX, _selectionY);
+                    TrySelectPiece(_selectionX, _selectionY);
                 }
                 else
                 {
 					Debug.Log("move piece");
                     // move
-                    MovePiece(_selectionX, _selectionY);
+                    TryMovePiece(_selectionX, _selectionY);
                 }
             }
         }
 	}
 
-    private void SelectPiece(int x, int y)
+    private void TrySelectPiece(int x, int y)
     {
         // my turn?
         if (_player.userIndex != _turnIndex)
@@ -199,7 +199,7 @@ public class BoardManager : MonoBehaviour {
         _selectedPiece = pm;
     }
 
-    private void MovePiece(int toX, int toY)
+    private void TryMovePiece(int toX, int toY)
     {
         int fromX = _selectedPiece._currentX;
         int fromY = _selectedPiece._currentY;
@@ -215,7 +215,7 @@ public class BoardManager : MonoBehaviour {
 		Debug.Log(toX);
 		Debug.Log(toY);
 
-        NetworkManager.Instance.SendMovePiece(fromX, fromY, toX, toY);
+        NetworkManager.Instance.SendMovePiece(_turnIndex, fromX, fromY, toX, toY);
         OnMyTurn(false);
     }
 
@@ -456,7 +456,7 @@ public class BoardManager : MonoBehaviour {
         {
             if (move)
             {
-                Invoke("MovePiece", 0.5f);
+                Invoke("MovePiece", 0.1f);
             }
         }
     }

@@ -22,9 +22,9 @@ public class NetworkManager : MonoBehaviour {
         BoardManager.Instance.OnReceiveMoveResult(color, move, fromX, fromY, toX, toY, battle, win);
     }
 
-    public void SendMovePiece(int fromX, int fromY, int toX, int toY)
+    public void SendMovePiece(int userIdex, int fromX, int fromY, int toX, int toY)
     {
-        LogicManager.Instance.OnReceiveMovePiece(1, fromX, fromY, toX, toY);
+        LogicManager.Instance.OnReceiveMovePiece(userIndex, fromX, fromY, toX, toY);
     }
 
     public void SendPieceInfo(string packet)

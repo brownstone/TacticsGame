@@ -415,6 +415,40 @@ public class LogicManager : MonoBehaviour {
         return mi;
     }
 
+    private bool GetSoldierToSpecial(int soldierSubType, int specialSubType)
+    {
+        bool result = false;
+        switch (specialSubType)
+        {
+            case 0: // killer
+                if (soldierSubType < 13)
+                    result = true;
+                break;
+            case 1: // cleaner
+                result = true;
+                break;
+            case 2: // spy
+                // special notify
+                result = true;
+                break;
+            case 3: // gas
+                break;
+            case 4: // meta
+                // special change this meta
+                break;
+            case 5: // center
+                result = true;
+                break;
+        }
+        return result;
+    }
+
+    private bool GetSpecialToSoldier(int specialSubType, int soldierSubType)
+    {
+        return !GetSoldierToSpecial(soldierSubType, specialSubType);
+    }
+
+
     private bool WinOrLose(int heroMainType, int heroSubType, int enemyMainType, int enemySubType)
     {
         // killer, cleaner, spy, gas, meta, center
@@ -427,63 +461,11 @@ public class LogicManager : MonoBehaviour {
         }
         if (heroMainType == 1 && enemyMainType == 2)
         {
-            switch (enemySubType)
-            {
-                case 0: // killer
-				{
-                    if (heroSubType > 12)
-                        return false;
-                    else
-                        return true;
-                    // break;
-				}
-                case 1: // cleaner
-                    return true;
-                    // break;
-                case 2: // spy
-                    // special notify
-                    return true;
-                    // break;
-                case 3: // gas
-                    return false;
-                    // break;
-                case 4: // meta
-                    // special change this meta
-                    return false;
-                    // break;
-                case 5: // center
-                    return true;
-                    // break;
-            }
+            return GetSoldierToSpecial(heroSubType, enemySubType);
         }
         if (heroMainType == 2 && enemyMainType == 1)
         {
-            switch (heroSubType)
-            {
-                case 0: // killer
-                    if (enemySubType > 12)
-                        return true;
-                    else
-                        return false;
-                    // break;
-                case 1: // cleaner
-                    return false;
-                    // break;
-                case 2: // spy
-                    // special notify
-                    return false;
-                    // break;
-                case 3: // gas  // attacker should not be gas
-                    return true;
-                    // break;
-                case 4: // meta
-                    // special change this meta
-                    return true;
-                    // break;
-                case 5: // center  // attacker should not be center
-                    return false;
-                    // break;
-            }
+            return GetSpecialToSoldier(heroSubType, enemySubType);
         }
         if (heroMainType == 2 && enemyMainType == 2)
         {
@@ -495,37 +477,36 @@ public class LogicManager : MonoBehaviour {
 				}
             }
 			
-			return true;
-
-            // switch (heroSubType)
-            // {
-                // case 0: // killer  // 오로지 별을 잡기 위한 유닛이어서 모두에게 진다.
-                    // if (enemySubType == 5)
-                        // return false;
-                    // // break;
-                // case 1: // cleaner
-                    // if (enemySubType == 0 || enemySubType == 2 || enemySubType == 3 || enemySubType == 5)
-                        // return true;
-                    // return false;
-                    // // break;
-                // case 2: // spy
-                    // // special notify
-                    // if (enemySubType == 0 || enemySubType == 5)
-                        // return true;
-                    // return false;
-                    // // break;
-                // case 3: // gas  // attacker should not be gas
-                    // Debug.Log("attacker should not be gas");
-                    // return true;
-                    // // break;
-                // case 4: // meta
-                    // // special change this meta
-                    // return true;
-                    // // break;
-                // case 5: // center  // attacker should not be center
-                    // return false;
-                    // // break;
-            // }
+            bool result = false;
+            switch (heroSubType)
+            {
+                case 0: // killer  // 오로지 별을 잡기 위한 유닛이어서 모두에게 진다.
+                    if (enemySubType == 5)
+                        result = false;
+                    break;
+                case 1: // cleaner
+                    result = false;
+                    if (enemySubType == 0 || enemySubType == 2 || enemySubType == 3 || enemySubType == 5)
+                        result = true;
+                    break;
+                case 2: // spy
+                    // special notify
+                    result = false;
+                    if (enemySubType == 0 || enemySubType == 5)
+                        result = true;
+                    break;
+                case 3: // gas  // attacker should not be gas
+                    Debug.Log("attacker should not be gas");
+                    break;
+                case 4: // meta
+                    // special change this meta
+                    result = true;
+                    break;
+                case 5: // center  // attacker should not be center
+                    result = false;
+                    break;
+            }
+            return result;
         }
 
         Debug.Log("Invalid attack battle");
@@ -676,7 +657,7 @@ public class LogicManager : MonoBehaviour {
 
         if (mainType == 2)
         {
-            if (subType == 0 || subType == 1 || subType == 2 || subType == 5)
+            if (subType == 0 || subType == 1 || subType == 2 || subType == 4)
                 return true;
         }
 
@@ -792,7 +773,7 @@ public class LogicManager : MonoBehaviour {
         }
     }
 	
-	public void OnReceiveMovePiece(int pid, int fromX, int fromY, int toX, int toY)
+	public void OnReceiveMovePiece(int userIndex, int fromX, int fromY, int toX, int toY)
 	{
 		Debug.Log("OnReceiveMovePiece");
 		if (_gs != GameState.GS_BATTLE) 
@@ -807,10 +788,10 @@ public class LogicManager : MonoBehaviour {
 			return;
 		}
 
-		MoveResult mi = GetMoveResult(pid, fromX, fromY, toX, toY);
+        MoveResult mi = GetMoveResult(userIndex, fromX, fromY, toX, toY);
         SendMoveResult(mi);
 
-        int special = GetSpecialAbility(pid, fromX, fromY, toX, toY);
+        int special = GetSpecialAbility(userIndex, fromX, fromY, toX, toY);
 		
 		special++;
 			
