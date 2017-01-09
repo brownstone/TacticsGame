@@ -25,7 +25,6 @@ public class BoardManager : MonoBehaviour {
     private List<GameObject> _activePieces = new List<GameObject>();
 
     private int _turnIndex = 0;
-    private int _myTurnIndex = 0;
 
     struct UserInfo
     {
@@ -46,9 +45,39 @@ public class BoardManager : MonoBehaviour {
         public int toY;
         public bool battle;
         public bool win;
-    };
+
+        public void Clear()
+        {
+            color = 0;
+            move = false;
+            fromX = 0;
+            fromY = 0;
+            toX = 0;
+            toY = 0;
+            battle = false;
+            win = false;
+        }
+    }
 
     private MoveResult _moveResult = new MoveResult();
+
+    public struct MetaAbility
+    {
+        public int x;
+        public int y;
+        public int mainType;
+        public int subType;
+
+        public void Clear()
+        {
+            x = 0;
+            y = 0;
+            mainType = 0;
+            subType = 0;
+        }
+    }
+
+    private MetaAbility _metaAbility = new MetaAbility();
 
 
 	private void Start () {
@@ -350,6 +379,27 @@ public class BoardManager : MonoBehaviour {
         PieceMans[_moveResult.toX, _moveResult.toY] = pm;
     }
 
+    private void ChangePiece()
+    {
+        Debug.Log("Change Piece");
+
+        PieceMan pm = PieceMans[_metaAbility.x, _metaAbility.y];
+        if (pm == null)
+        {
+            Debug.Log("Invalid Piece");
+            return;
+        }
+
+        if (pm._color != _player.userIndex)
+        {
+            Debug.Log("Invalid Piece user index");
+            return;
+        }
+
+        //pm.SetProperty(x, y, color, mainType, subType);
+        pm.SetProperty(pm._currentX, pm._currentY, pm._color, _metaAbility.mainType, _metaAbility.subType);
+    }
+
     public void OnReceiveTurnOver(int turnIndex)
     {
         _turnIndex = turnIndex;
@@ -358,6 +408,9 @@ public class BoardManager : MonoBehaviour {
         OnMyTurn(turn);
         turn = (_opponent.userIndex == _turnIndex);
         OnOpponentTurn(turn);
+
+        _moveResult.Clear();
+        _metaAbility.Clear();
     }
 
     private void OnMyTurn(bool on)
@@ -415,6 +468,26 @@ public class BoardManager : MonoBehaviour {
         }
     }
 
+    public void OnReceiveSpecialAbility(int special, int x, int y, int mainType, int subType)
+    {
+        if (special == 1)
+        {
+            Debug.Log("Spy");
+        }
+        if (special == 2)
+        {
+            Debug.Log("Meta");
+            _metaAbility.x = x;
+            _metaAbility.y = y;
+            _metaAbility.mainType = mainType;
+            _metaAbility.subType = subType;
+            if (_moveResult.win)
+                Invoke("ChangePiece", 0.6f);
+            else
+                Invoke("ChangePiece", 0.4f);
+        }
+    }
+
     public void OnReceiveMoveResult(int color, bool move, int fromX, int fromY, int toX, int toY, bool battle, bool win)
     {
 		Debug.Log("OnReceiveMoveResult");
@@ -443,13 +516,13 @@ public class BoardManager : MonoBehaviour {
             Invoke("BattleStart", 0);
             if (win)
             {
-                Invoke("RemovePiece", 0.5f);
-                Invoke("MovePiece", 0.7f);
+                Invoke("RemovePiece", 0.3f);
+                Invoke("MovePiece", 0.5f);
             }
             else
             {
                 // nothing
-                Invoke("RemovePiece", 0.5f);
+                Invoke("RemovePiece", 0.2f);
             }
         }
         else

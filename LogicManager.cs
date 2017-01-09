@@ -54,6 +54,24 @@ public struct MoveResult
 	}
 }
 
+public struct SpecialAbility
+{
+    public int special;   // 0 : noting, 1 : spy, 2 : meta
+    public int x;
+    public int y;
+    public int mainType;
+    public int subType;
+
+    public void Clear()
+    {
+        special = 0;
+        x = 0;
+        y = 0;
+        mainType = 0;
+        subType = 0;
+    }
+}
+
 public class LogicManager : MonoBehaviour {
     public static LogicManager Instance { set; get; }
 
@@ -197,36 +215,24 @@ public class LogicManager : MonoBehaviour {
         else if (_turnIndex == 2)
         {
             // think AI
-			if (_battleElapsed < 3.0f)
+			if (_battleElapsed < 1.0f)
 				return;
 
-			MoveResult mi = ProcessThink();
 
-            SendMoveResult(mi);
+            int fromX, fromY, toX, toY;
+            ProcessThink2(_turnIndex, out fromX, out fromY, out toX, out toY);
 
-            if (mi._battle)
+            MoveResult mr = GetMoveResult(_turnIndex, fromX, fromY, toX, toY);
+            SendMoveResult(mr);
+
+            SpecialAbility sa;
+            bool special = GetSpecialAbility(1, fromX, fromY, toX, toY, out sa);
+            if (special)
             {
-                if (mi._win)
-                {
-                    _pieceInfos[mi._toX, mi._toY] = _pieceInfos[mi._fromX, mi._fromY];
-                    _pieceInfos[mi._fromX, mi._fromY] = null;
-                    _pieceInfos[mi._toX, mi._toY]._x = mi._toX;
-                    _pieceInfos[mi._toX, mi._toY]._y = mi._toY;
-                }
-                else
-                {
-                    _pieceInfos[mi._fromX, mi._fromY] = null;
-                }
-            } else
-            {
-                if (mi._move)
-                {
-                    _pieceInfos[mi._toX, mi._toY] = _pieceInfos[mi._fromX, mi._fromY];
-                    _pieceInfos[mi._fromX, mi._fromY] = null;
-                    _pieceInfos[mi._toX, mi._toY]._x = mi._toX;
-                    _pieceInfos[mi._toX, mi._toY]._y = mi._toY;
-                }
+                NetworkManager.Instance.SendSpecialAbility(sa.special, sa.mainType, sa.subType);
             }
+
+            ArrangePieces(mr);
 
             _gs = GameState.GS_BATTLE_SIMULATION;
         }
@@ -236,7 +242,7 @@ public class LogicManager : MonoBehaviour {
     {
         _simulationElapsed += Time.deltaTime;
 
-        if (_simulationElapsed > 3.0f)
+        if (_simulationElapsed > 1.5f)
         {
             bool isGameOver = GameOver();
             if (isGameOver)
@@ -254,59 +260,86 @@ public class LogicManager : MonoBehaviour {
         }
     }
     
-    private int GetSpecialAbility(int pid, int fromX, int fromY, int toX, int toY)
+    private bool GetSpecialAbility(int userIndex, int fromX, int fromY, int toX, int toY, out SpecialAbility sa)
     {
-        int special = 0;
-        int p1special = 0;
-        int p2special = 0;
-
-        //struct SpecialAbility
-        //{
-        //    public int p1special;
-        //    public int p1maintype;
-        //    public int p1subtype;
-        //    public int p2special;
-        //    public int p2maintype;
-        //    public int p2subtype;
-        //}
-
-        //SpecialAbility sa;
-
-
-
-
+        sa.Clear();
 		PieceInfo p = _pieceInfos[fromX, fromY];
 		if (p == null)
-			return special;
-		
-		if (p._color != pid)
-			return special;
+			return false;
+
+        if (p._color != userIndex)
+			return false;
 		
 		PieceInfo enemy = _pieceInfos[toX, toY];
         if (enemy == null)
-            return special;
+            return false;
 
         if (p._color == enemy._color)
-            return special;
+            return false;
 
 
-        if (p._mainType == 2)
+        if (p._mainType == 2 && p._color == userIndex)
         {
+            if (enemy._mainType == 2)
+            {
+                if (enemy._subType == 5)
+                {
+                    return false;
+                }
+            }
             if (p._subType == 2) // spy
-                p1special = 1;
+            {
+                sa.special = 1;
+                sa.mainType = enemy._mainType;
+                sa.subType = enemy._subType;
+                return true;
+            }
             if (p._subType == 4) // meta
-                p2special = 2;
+            {
+                sa.special = 2;
+                sa.x = enemy._x;
+                sa.y = enemy._y;
+                sa.mainType = enemy._mainType;
+                sa.subType = enemy._subType;
+                return true;
+            }
         }
 
-        if (enemy._mainType == 2)
+        if (enemy._mainType == 2 && enemy._color == userIndex)
         {
+            if (p._mainType == 2)
+            {
+                if (p._subType == 5)
+                {
+                    return false;
+                }
+            }
             if (enemy._subType == 2)
-                p2special = 1;
+            {
+                sa.special = 1;
+                sa.mainType = p._mainType;
+                sa.subType = p._subType;
+                return true;
+            }
             if (enemy._subType == 4)
-                p2special = 2;
+            {
+                if (p._mainType == 2)
+                {
+                    if (p._subType == 4)
+                    {
+                        return false;
+                    }
+                }
+                sa.special = 2;
+                sa.x = enemy._x;
+                sa.y = enemy._y;
+                sa.mainType = p._mainType;
+                sa.subType = p._subType;
+                return true;
+            }
         }
 
-        return p1special + p2special;
+        return true;
     }
 
 	private MoveResult GetMoveResult(int pid, int fromX, int fromY, int toX, int toY)
@@ -355,6 +388,58 @@ public class LogicManager : MonoBehaviour {
 		}
 		return mi;
 	}
+
+    private bool ProcessThink2(int userIndex, out int fromX, out int fromY, out int toX, out int toY)
+    {
+        Debug.Log("ProcessThink");
+
+        fromX = 0;
+        fromY = 0;
+        toX = 0;
+        toY = 0;
+
+        PieceInfo p = GetPieceNearEnemy(userIndex);
+        if (p != null)
+        {
+            fromX = p._x;
+            fromY = p._y;
+
+            PieceInfo enemy = FindEnemy(p._x, p._y, p._color);
+            if (enemy == null)
+            {
+                Debug.Log("What the fuck!!!!");
+                return false;
+            }
+
+            toX = enemy._x;
+            toY = enemy._y;
+            return true;
+        }
+        if (p == null)
+        {
+            p = GetPieceMoveable(userIndex);
+            if (p != null)
+            {
+                int xx; int yy;
+                bool moveable = GetMovePos(p._x, p._y, out xx, out yy);
+                if (moveable)
+                {
+                    fromX = p._x;
+                    fromY = p._y;
+                    toX = xx;
+                    toY = yy;
+                    return true;
+                }
+            }
+            else
+            {
+                Debug.Log("not move");
+                return false;
+            }
+        }
+
+        return false;
+    }
 
     private MoveResult ProcessThink()
     {
@@ -409,7 +494,6 @@ public class LogicManager : MonoBehaviour {
 			{
 				Debug.Log("not move");
 			}
-			
         }
 
         return mi;
@@ -788,45 +872,65 @@ public class LogicManager : MonoBehaviour {
 			return;
 		}
 
-        MoveResult mi = GetMoveResult(userIndex, fromX, fromY, toX, toY);
-        SendMoveResult(mi);
+        MoveResult mr = GetMoveResult(userIndex, fromX, fromY, toX, toY);
+        SendMoveResult(mr);
 
-        int special = GetSpecialAbility(userIndex, fromX, fromY, toX, toY);
-		
-		special++;
-			
-		if (mi._battle)
-		{
-			if (mi._win)
-			{
-				_pieceInfos[mi._toX, mi._toY] = _pieceInfos[mi._fromX, mi._fromY];
-				_pieceInfos[mi._fromX, mi._fromY] = null;
-				_pieceInfos[mi._toX, mi._toY]._x = mi._toX;
-				_pieceInfos[mi._toX, mi._toY]._y = mi._toY;
-			}
-			else
-			{
-				_pieceInfos[mi._fromX, mi._fromY] = null;
-			}
-		} 
-		else
-		{
-			if (mi._move)
-			{
-				_pieceInfos[mi._toX, mi._toY] = _pieceInfos[mi._fromX, mi._fromY];
-				_pieceInfos[mi._fromX, mi._fromY] = null;
-				_pieceInfos[mi._toX, mi._toY]._x = mi._toX;
-				_pieceInfos[mi._toX, mi._toY]._y = mi._toY;
-			}
-		}
+        SpecialAbility sa;
+        bool special = GetSpecialAbility(1, fromX, fromY, toX, toY, out sa);
+        if (special)
+        {
+            NetworkManager.Instance.SendSpecialAbility(sa.special, sa._x, sa.y, sa.mainType, sa.subType);
+        }
+
+        ArrangePieces(mr);
 
         _gs = GameState.GS_BATTLE_SIMULATION;
 	}
+
+    private void ArrangePieces(MoveResult mr)
+    {
+        if (mr._battle)
+        {
+            if (mr._win)
+            {
+                PieceInfo p = _pieceInfos[mr._fromX, mr._fromY];
+                if (p._mainType == 2 && p._subType == 4)
+                {
+                    p._mainType = _pieceInfos[mr._toX, mr._toY]._mainType;
+                    p._subType = _pieceInfos[mr._toX, mr._toY]._subType;
+                }
+                _pieceInfos[mr._toX, mr._toY] = _pieceInfos[mr._fromX, mr._fromY];
+                _pieceInfos[mr._fromX, mr._fromY] = null;
+                _pieceInfos[mr._toX, mr._toY]._x = mi._toX;
+                _pieceInfos[mr._toX, mr._toY]._y = mi._toY;
+            }
+            else
+            {
+                PieceInfo p = _pieceInfos[mr._toX, mr._toY];
+                if (p._mainType == 2 && p._subType == 4)
+                {
+                    p._mainType = _pieceInfos[mr._fromX, mr._fromY]._mainType;
+                    p._subType = _pieceInfos[mr._fromX, mr._fromY]._subType;
+                }
+                _pieceInfos[mr._fromX, mr._fromY] = null;
+            }
+        }
+        else
+        {
+            if (mr._move)
+            {
+                _pieceInfos[mr._toX, mr._toY] = _pieceInfos[mr._fromX, mr._fromY];
+                _pieceInfos[mr._fromX, mr._fromY] = null;
+                _pieceInfos[mr._toX, mr._toY]._x = mr._toX;
+                _pieceInfos[mr._toX, mr._toY]._y = mr._toY;
+            }
+        }
+    }
 	
-	public void SendMovePiece(int pid, int fromX, int fromY, int toX, int toY)
-	{
-		OnReceiveMovePiece(pid, fromX, fromY, toX, toY);
-	}
+    //public void SendMovePiece(int pid, int fromX, int fromY, int toX, int toY)
+    //{
+    //    OnReceiveMovePiece(pid, fromX, fromY, toX, toY);
+    //}
 
     public void SendMoveResult(MoveResult mr)
     {

@@ -22,7 +22,7 @@ public class NetworkManager : MonoBehaviour {
         BoardManager.Instance.OnReceiveMoveResult(color, move, fromX, fromY, toX, toY, battle, win);
     }
 
-    public void SendMovePiece(int userIdex, int fromX, int fromY, int toX, int toY)
+    public void SendMovePiece(int userIndex, int fromX, int fromY, int toX, int toY)
     {
         LogicManager.Instance.OnReceiveMovePiece(userIndex, fromX, fromY, toX, toY);
     }
@@ -51,5 +51,8 @@ public class NetworkManager : MonoBehaviour {
     {
         BoardManager.Instance.OnReceiveGameResult(winnerIndex);
     }
-
+    public void SendSpecialAbility(int special, int x, int y, int mainType, int subType)
+    {
+        BoardManager.Instance.OnReceiveSpecialAbility(special, x, y, mainType, subType);
+    }
 }
