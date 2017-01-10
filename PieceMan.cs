@@ -21,10 +21,13 @@ public class PieceMan : MonoBehaviour {
         _currentY = y;
         _mainType = mainType;
         _subType = subType;
+        _color = color;
 
-        Color c = Color.blue;
+        Color c = Color.yellow;
         if (color == 1)
             c = Color.red;
+        if (color == 2)
+            c = Color.blue;
 
         MeshRenderer mr = _wall.GetComponent<MeshRenderer>();
         if (mr != null)

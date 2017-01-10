@@ -1,21 +1,22 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class NetworkManager : MonoBehaviour {
+public class NetworkManager : MonoBehaviour
+{
     public static NetworkManager Instance { set; get; }
 
-	// Use this for initialization
-	public void Start () 
-	{
-		Debug.Log("Init");
-	    Instance = this;
+    // Use this for initialization
+    public void Start()
+    {
+        Debug.Log("Init");
+        Instance = this;
 
-	}
-	
-	public void SetTest()
-	{
-		Debug.Log("asdfasdf");
-	}
+    }
+
+    public void SetTest()
+    {
+        Debug.Log("asdfasdf");
+    }
 
     public void SendMoveResult(int color, bool move, int fromX, int fromY, int toX, int toY, bool battle, bool win)
     {

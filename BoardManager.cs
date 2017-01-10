@@ -2,7 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 
-public class BoardManager : MonoBehaviour {
+public class BoardManager : MonoBehaviour
+{
     public static BoardManager Instance { set; get; }
 
     public PieceMan[,] PieceMans { set; get; }
@@ -80,12 +81,13 @@ public class BoardManager : MonoBehaviour {
     private MetaAbility _metaAbility = new MetaAbility();
 
 
-	private void Start () {
+    private void Start()
+    {
         Instance = this;
-        Invoke("GamePrepare", 1.0f);
+        Invoke("GamePrepare", 0.5f);
         _player.userName = "brown";
-		PieceMans = new PieceMan[12,9];
-	}
+        PieceMans = new PieceMan[12, 9];
+    }
 
     private void GamePrepare()
     {
@@ -136,7 +138,8 @@ public class BoardManager : MonoBehaviour {
         if (isRed)
         {
             go = Instantiate(_redPiecePrefabs[index], position, Quaternion.identity) as GameObject;
-        } else
+        }
+        else
         {
             go = Instantiate(_bluePiecePrefabs[index], position, Quaternion.identity) as GameObject;
         }
@@ -178,15 +181,15 @@ public class BoardManager : MonoBehaviour {
     {
         SpawnPiece(x, y, mainType, subType, color);
     }
-	
-	// Update is called once per frame
-	private void Update () {
+
+    // Update is called once per frame
+    private void Update()
+    {
         UpdateSelection();
         DrawBoardLine();
 
         if (Input.GetMouseButtonDown(0))
         {
-			Debug.Log("mouse");
             if (_selectionX >= 0 && _selectionY >= 0)
             {
                 if (_selectedPiece == null)
@@ -196,13 +199,12 @@ public class BoardManager : MonoBehaviour {
                 }
                 else
                 {
-					Debug.Log("move piece");
                     // move
                     TryMovePiece(_selectionX, _selectionY);
                 }
             }
         }
-	}
+    }
 
     private void TrySelectPiece(int x, int y)
     {
@@ -214,9 +216,8 @@ public class BoardManager : MonoBehaviour {
             return;
 
         PieceMan pm = PieceMans[x, y];
-        // if (pm._color != _player.userIndex)
-            // return;
-		Debug.Log("3");
+        if (pm._color != _player.userIndex)
+            return;
 
         if (pm.CanMove() == false)
         {
@@ -224,7 +225,71 @@ public class BoardManager : MonoBehaviour {
             return;
         }
 
-		Debug.Log("Select success");
+        bool[,] allowedMoves = new bool[12, 9];
+        if (x - 1 >= 0)
+        {
+            PieceMan p = PieceMans[x - 1, y];
+            if (p == null)
+            {
+                allowedMoves[x - 1, y] = true;
+            }
+            else
+            {
+                if (p._color != _turnIndex)
+                {
+                    allowedMoves[x - 1, y] = true;
+                }
+            }
+        }
+        if (x + 1 < 12)
+        {
+            PieceMan p = PieceMans[x + 1, y];
+            if (p == null)
+            {
+                allowedMoves[x + 1, y] = true;
+            }
+            else
+            {
+                if (p._color != _turnIndex)
+                {
+                    allowedMoves[x + 1, y] = true;
+                }
+            }
+        }
+        if (y - 1 >= 0)
+        {
+            PieceMan p = PieceMans[x, y - 1];
+            if (p == null)
+            {
+                allowedMoves[x, y - 1] = true;
+            }
+            else
+            {
+                if (p._color != _turnIndex)
+                {
+                    allowedMoves[x, y - 1] = true;
+                }
+            }
+        }
+        if (y + 1 < 9)
+        {
+            PieceMan p = PieceMans[x, y + 1];
+            if (p == null)
+            {
+                allowedMoves[x, y + 1] = true;
+            }
+            else
+            {
+                if (p._color != _turnIndex)
+                {
+                    allowedMoves[x, y + 1] = true;
+                }
+            }
+        }
+
+        BoardHighlights.Instance.HighlightAllowedMoves(allowedMoves);
+
+
         _selectedPiece = pm;
     }
 
@@ -233,16 +298,20 @@ public class BoardManager : MonoBehaviour {
         int fromX = _selectedPiece._currentX;
         int fromY = _selectedPiece._currentY;
 
+        if (fromX == toX && fromY == toY)
+        {
+            BoardHighlights.Instance.HideHighlights();
+            _selectedPiece = null;
+            return;
+        }
+
         if (IsMovePossible(fromX, fromY, toX, toY) == false)
         {
             return;
         }
 
+        BoardHighlights.Instance.HideHighlights();
         _selectedPiece = null;
-		
-		Debug.Log("Move to");
-		Debug.Log(toX);
-		Debug.Log(toY);
 
         NetworkManager.Instance.SendMovePiece(_turnIndex, fromX, fromY, toX, toY);
         OnMyTurn(false);
@@ -250,7 +319,7 @@ public class BoardManager : MonoBehaviour {
 
     private bool IsMovePossible(int fromX, int fromY, int toX, int toY)
     {
-        int moveDistant = Mathf.Abs(toX - fromX + toY - fromY);
+        int moveDistant = Mathf.Abs(toX - fromX) + Mathf.Abs(toY - fromY);
         if (moveDistant != 1)
             return false;
 
@@ -271,10 +340,12 @@ public class BoardManager : MonoBehaviour {
         if (!Camera.current)
             return;
         RaycastHit hit;
-        if (Physics.Raycast(Camera.current.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("BoardPlane"))) {
+        if (Physics.Raycast(Camera.current.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("BoardPlane")))
+        {
             _selectionX = (int)hit.point.x;
             _selectionY = (int)hit.point.z;
-        } else
+        }
+        else
         {
             _selectionX = -1;
             _selectionY = -1;
@@ -307,14 +378,14 @@ public class BoardManager : MonoBehaviour {
                 Vector3.right * _selectionX + Vector3.forward * (_selectionY + 1),
                 Vector3.right * (_selectionX + 1) + Vector3.forward * _selectionY);
         }
-		
+
     }
-	
-	public void SendSpawnPiece(int x, int y, int mainType, int subType, int color)
-	{
-		SpawnPiece(x, y, mainType, subType, color);
-	}
-	
+
+    public void SendSpawnPiece(int x, int y, int mainType, int subType, int color)
+    {
+        SpawnPiece(x, y, mainType, subType, color);
+    }
+
     private void BattleStart()
     {
         Debug.Log("Battle Start");
@@ -355,7 +426,6 @@ public class BoardManager : MonoBehaviour {
 
     private void MovePiece()
     {
-		Debug.Log("MovePiece");
         PieceMan pm = PieceMans[_moveResult.fromX, _moveResult.fromY];
         if (pm == null)
         {
@@ -365,9 +435,6 @@ public class BoardManager : MonoBehaviour {
 
         if (PieceMans[_moveResult.toX, _moveResult.toY] != null)
         {
-			Debug.Log(_moveResult.toX);
-			Debug.Log(_moveResult.toY);
-			
             Debug.Log("Target cell must be empty");
             return;
         }
@@ -393,6 +460,8 @@ public class BoardManager : MonoBehaviour {
         if (pm._color != _player.userIndex)
         {
             Debug.Log("Invalid Piece user index");
+            Debug.Log(pm._color);
+            Debug.Log(_player.userIndex);
             return;
         }
 
@@ -427,12 +496,12 @@ public class BoardManager : MonoBehaviour {
 
     public void OnReceiveUserInfo(string userInfos)
     {
-		Debug.Log("OnReceiveUserInfo");
+        Debug.Log("OnReceiveUserInfo");
         string[] aData = userInfos.Split('|');
 
         if (aData.Length != 5)
         {
-			Debug.Log(aData.Length);
+            Debug.Log(aData.Length);
             return;
         }
 
@@ -490,14 +559,14 @@ public class BoardManager : MonoBehaviour {
 
     public void OnReceiveMoveResult(int color, bool move, int fromX, int fromY, int toX, int toY, bool battle, bool win)
     {
-		Debug.Log("OnReceiveMoveResult");
-		
         PieceMan pm = PieceMans[fromX, fromY];
         if (pm != null)
         {
             if (pm._color != color)
             {
                 Debug.Log("Invalid color");
+                Debug.Log(pm._color);
+                Debug.Log(color);
                 return;
             }
         }

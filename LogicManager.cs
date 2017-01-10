@@ -39,22 +39,22 @@ public struct MoveResult
     public bool _win;
     public int _special; // 0 : noting, 1 : spy, 2 : meta
 
-	
-	public void Clear()
-	{
+
+    public void Clear()
+    {
         _color = 0;
-		_move = false;
-		_fromX = 0;
-		_fromY = 0;
-		_toX = 0;
-		_toY = 0;
-		_battle = false;
-		_win = false;
+        _move = false;
+        _fromX = 0;
+        _fromY = 0;
+        _toX = 0;
+        _toY = 0;
+        _battle = false;
+        _win = false;
         _special = 0;
-	}
+    }
 }
 
-public struct SpecialAbility
+public class SpecialAbility
 {
     public int special;   // 0 : noting, 1 : spy, 2 : meta
     public int x;
@@ -72,21 +72,23 @@ public struct SpecialAbility
     }
 }
 
-public class LogicManager : MonoBehaviour {
+public class LogicManager : MonoBehaviour
+{
     public static LogicManager Instance { set; get; }
 
     private float _readyElapsed = 0;
     private int _readyCount = 0;
     private float _startElapsed = 0;
     private float _resultElapsed = 0;
-	private float _battleElapsed = 0;
+    private float _battleElapsed = 0;
     private float _simulationElapsed = 0;
+    private float _simulationTimeout = 0.6f;
     private bool _battleAction = false;
-	
-	private PieceInfo[,] _pieceInfos;
+
+    private PieceInfo[,] _pieceInfos;
 
     private UserInfo[] _userInfos;
-	
+
     private int _turnIndex = 0; // 0:Noting, 1:red, 2:blue
 
     enum GameState
@@ -102,13 +104,13 @@ public class LogicManager : MonoBehaviour {
     private GameState _gs;
 
 
-	private void Start ()
+    private void Start()
     {
         Instance = this;
         _gs = GameState.GS_READY;
         _pieceInfos = new PieceInfo[12, 9];
         _userInfos = new UserInfo[2];
-	}
+    }
 
     //private void FillRedColor()
     //{
@@ -175,12 +177,13 @@ public class LogicManager : MonoBehaviour {
 
 
     // Update is called once per frame
-    private void Update () {
+    private void Update()
+    {
 
-        switch(_gs)
+        switch (_gs)
         {
-            case GameState.GS_READY:  ProcessReady();  break;
-            case GameState.GS_START:  ProcessStart();  break;
+            case GameState.GS_READY: ProcessReady(); break;
+            case GameState.GS_START: ProcessStart(); break;
             case GameState.GS_BATTLE: ProcessBattle(); break;
             case GameState.GS_BATTLE_SIMULATION: ProcessBattleSimulation(); break;
             case GameState.GS_RESULT: ProcessResult(); break;
@@ -206,7 +209,7 @@ public class LogicManager : MonoBehaviour {
 
     private void ProcessBattle()
     {
-		_battleElapsed += Time.deltaTime;
+        _battleElapsed += Time.deltaTime;
 
         if (_turnIndex == 1)
         {
@@ -215,8 +218,8 @@ public class LogicManager : MonoBehaviour {
         else if (_turnIndex == 2)
         {
             // think AI
-			if (_battleElapsed < 1.0f)
-				return;
+            if (_battleElapsed < 1.0f)
+                return;
 
 
             int fromX, fromY, toX, toY;
@@ -225,14 +228,21 @@ public class LogicManager : MonoBehaviour {
             MoveResult mr = GetMoveResult(_turnIndex, fromX, fromY, toX, toY);
             SendMoveResult(mr);
 
-            SpecialAbility sa;
-            bool special = GetSpecialAbility(1, fromX, fromY, toX, toY, out sa);
+            SpecialAbility sa = new SpecialAbility();
+            sa.Clear();
+            bool special = GetSpecialAbility(1, fromX, fromY, toX, toY, sa);
             if (special)
             {
-                NetworkManager.Instance.SendSpecialAbility(sa.special, sa.mainType, sa.subType);
+                NetworkManager.Instance.SendSpecialAbility(sa.special, sa.x, sa.y, sa.mainType, sa.subType);
             }
 
             ArrangePieces(mr);
+
+            if (mr._battle)
+                _simulationTimeout = 0.6f;
+            else
+                _simulationTimeout = 0.2f;
+
 
             _gs = GameState.GS_BATTLE_SIMULATION;
         }
@@ -242,7 +252,7 @@ public class LogicManager : MonoBehaviour {
     {
         _simulationElapsed += Time.deltaTime;
 
-        if (_simulationElapsed > 1.5f)
+        if (_simulationElapsed > _simulationTimeout)
         {
             bool isGameOver = GameOver();
             if (isGameOver)
@@ -255,28 +265,24 @@ public class LogicManager : MonoBehaviour {
                 TurnOver(true);
                 _gs = GameState.GS_BATTLE;
                 _battleElapsed = 0;
-				_simulationElapsed = 0;
+                _simulationElapsed = 0;
             }
         }
     }
-    
-    private bool GetSpecialAbility(int userIndex, int fromX, int fromY, int toX, int toY, out SpecialAbility sa)
-    {
-        sa.Clear();
-		PieceInfo p = _pieceInfos[fromX, fromY];
-		if (p == null)
-			return false;
 
-        if (p._color != userIndex)
-			return false;
-		
-		PieceInfo enemy = _pieceInfos[toX, toY];
+    private bool GetSpecialAbility(int userIndex, int fromX, int fromY, int toX, int toY, SpecialAbility sa)
+    {
+        //sa.Clear();
+        PieceInfo p = _pieceInfos[fromX, fromY];
+        if (p == null)
+            return false;
+
+        PieceInfo enemy = _pieceInfos[toX, toY];
         if (enemy == null)
             return false;
 
-        if (p._color == enemy._color)
-            return false;
 
+        Debug.Log("meta 1");
 
         if (p._mainType == 2 && p._color == userIndex)
         {
@@ -307,6 +313,7 @@ public class LogicManager : MonoBehaviour {
 
         if (enemy._mainType == 2 && enemy._color == userIndex)
         {
+            Debug.Log("meta 1");
             if (p._mainType == 2)
             {
                 if (p._subType == 5)
@@ -321,6 +328,7 @@ public class LogicManager : MonoBehaviour {
                 sa.subType = p._subType;
                 return true;
             }
+            Debug.Log("meta 2");
             if (enemy._subType == 4)
             {
                 if (p._mainType == 2)
@@ -330,6 +338,7 @@ public class LogicManager : MonoBehaviour {
                         return false;
                     }
                 }
+                Debug.Log("meta!!!");
                 sa.special = 2;
                 sa.x = enemy._x;
                 sa.y = enemy._y;
@@ -342,30 +351,31 @@ public class LogicManager : MonoBehaviour {
         return true;
     }
 
-	private MoveResult GetMoveResult(int pid, int fromX, int fromY, int toX, int toY)
+    private MoveResult GetMoveResult(int pid, int fromX, int fromY, int toX, int toY)
     {
         MoveResult mi = new MoveResult();
-		mi.Clear();
+        mi.Clear();
+        mi._color = pid;
         mi._move = false;
         mi._fromX = 0;
         mi._fromY = 0;
         mi._toX = 0;
         mi._toY = 0;
-		
-		PieceInfo p = _pieceInfos[fromX, fromY];
-		if (p == null)
-		{
-			return mi;
-		}
-		
-		if (p._color != pid)
-		{
-			return mi;
-		}
-		
-		PieceInfo enemy = _pieceInfos[toX, toY];
-		if (enemy != null)
-		{
+
+        PieceInfo p = _pieceInfos[fromX, fromY];
+        if (p == null)
+        {
+            return mi;
+        }
+
+        if (p._color != pid)
+        {
+            return mi;
+        }
+
+        PieceInfo enemy = _pieceInfos[toX, toY];
+        if (enemy != null)
+        {
             bool win = WinOrLose(p._mainType, p._subType, enemy._mainType, enemy._subType);
 
             mi._move = true;
@@ -375,19 +385,19 @@ public class LogicManager : MonoBehaviour {
             mi._toY = enemy._y;
             mi._battle = true;
             mi._win = win;
-		}
-		else
-		{
-			mi._move = true;
+        }
+        else
+        {
+            mi._move = true;
             mi._fromX = fromX;
             mi._fromY = fromY;
             mi._toX = toX;
             mi._toY = toY;
             mi._battle = false;
             mi._win = false;
-		}
-		return mi;
-	}
+        }
+        return mi;
+    }
 
     private bool ProcessThink2(int userIndex, out int fromX, out int fromY, out int toX, out int toY)
     {
@@ -443,10 +453,10 @@ public class LogicManager : MonoBehaviour {
 
     private MoveResult ProcessThink()
     {
-		Debug.Log("ProcessThink");
-		
+        Debug.Log("ProcessThink");
+
         MoveResult mi = new MoveResult();
-		mi.Clear();
+        mi.Clear();
         mi._move = false;
         mi._fromX = 0;
         mi._fromY = 0;
@@ -477,23 +487,24 @@ public class LogicManager : MonoBehaviour {
             p = GetPieceMoveable(_turnIndex);
             if (p != null)
             {
-				Debug.Log("GetPieceMoveable");
+                Debug.Log("GetPieceMoveable");
                 int xx; int yy;
                 bool moveable = GetMovePos(p._x, p._y, out xx, out yy);
-				if (moveable) {
-					mi._move = true;
-					mi._fromX = p._x;
-					mi._fromY = p._y;
-					mi._toX = xx;
-					mi._toY = yy;
-					mi._battle = false;
-					mi._win = false;
-				}
+                if (moveable)
+                {
+                    mi._move = true;
+                    mi._fromX = p._x;
+                    mi._fromY = p._y;
+                    mi._toX = xx;
+                    mi._toY = yy;
+                    mi._battle = false;
+                    mi._win = false;
+                }
             }
-			else
-			{
-				Debug.Log("not move");
-			}
+            else
+            {
+                Debug.Log("not move");
+            }
         }
 
         return mi;
@@ -556,11 +567,11 @@ public class LogicManager : MonoBehaviour {
             if (heroSubType != 0)
             {
                 if (heroSubType == enemySubType)
-				{
+                {
                     return true;
-				}
+                }
             }
-			
+
             bool result = false;
             switch (heroSubType)
             {
@@ -697,10 +708,10 @@ public class LogicManager : MonoBehaviour {
     private PieceInfo FindEnemy(int x, int y, int color)
     {
         PieceInfo f = null;
-		PieceInfo r = null;
-		PieceInfo l = null;
-		PieceInfo b = null;
-		
+        PieceInfo r = null;
+        PieceInfo l = null;
+        PieceInfo b = null;
+
         if (y > 0)
             f = _pieceInfos[x, y - 1];
         if (y < 8)
@@ -763,8 +774,8 @@ public class LogicManager : MonoBehaviour {
         {
             _turnIndex = 0;
         }
-		
-		NetworkManager.Instance.SendTurnOver(_turnIndex);
+
+        NetworkManager.Instance.SendTurnOver(_turnIndex);
     }
 
     private void ProcessResult()
@@ -782,28 +793,30 @@ public class LogicManager : MonoBehaviour {
 
     private bool GameOver()
     {
-		bool p1center = false;
-		bool p2center = false;
-		for (int x = 0; x < 12; x++)
-		{
-			for (int y = 0; y < 9; y++)
-			{
-				PieceInfo p = _pieceInfos[x, y];
-				if (p != null) {
-					if (p._mainType == 2 && p._subType == 5) {
-						if (p._color == 1)
-							p1center = true;
-						if (p._color == 2)
-							p2center = true;
-							
-					}
-				}
-			}
-		}
-		
-		if (p1center == false || p2center == false)
-			return true;
-		
+        bool p1center = false;
+        bool p2center = false;
+        for (int x = 0; x < 12; x++)
+        {
+            for (int y = 0; y < 9; y++)
+            {
+                PieceInfo p = _pieceInfos[x, y];
+                if (p != null)
+                {
+                    if (p._mainType == 2 && p._subType == 5)
+                    {
+                        if (p._color == 1)
+                            p1center = true;
+                        if (p._color == 2)
+                            p2center = true;
+
+                    }
+                }
+            }
+        }
+
+        if (p1center == false || p2center == false)
+            return true;
+
         return false;
     }
 
@@ -856,36 +869,42 @@ public class LogicManager : MonoBehaviour {
             }
         }
     }
-	
-	public void OnReceiveMovePiece(int userIndex, int fromX, int fromY, int toX, int toY)
-	{
-		Debug.Log("OnReceiveMovePiece");
-		if (_gs != GameState.GS_BATTLE) 
-		{
-			Debug.Log("Invalid state!!  OnReceiveMovePiece");
-			return;
-		}
-		
-		if (_turnIndex != pid) 
-		{
-			Debug.Log("Invalid pid!! OnReceiveMovePiece");
-			return;
-		}
+
+    public void OnReceiveMovePiece(int userIndex, int fromX, int fromY, int toX, int toY)
+    {
+        Debug.Log("OnReceiveMovePiece");
+        if (_gs != GameState.GS_BATTLE)
+        {
+            Debug.Log("Invalid state!!  OnReceiveMovePiece");
+            return;
+        }
+
+        if (_turnIndex != userIndex)
+        {
+            Debug.Log("Invalid pid!! OnReceiveMovePiece");
+            return;
+        }
 
         MoveResult mr = GetMoveResult(userIndex, fromX, fromY, toX, toY);
         SendMoveResult(mr);
 
-        SpecialAbility sa;
-        bool special = GetSpecialAbility(1, fromX, fromY, toX, toY, out sa);
+        SpecialAbility sa = new SpecialAbility();
+        sa.Clear();
+        bool special = GetSpecialAbility(1, fromX, fromY, toX, toY, sa);
         if (special)
         {
-            NetworkManager.Instance.SendSpecialAbility(sa.special, sa._x, sa.y, sa.mainType, sa.subType);
+            NetworkManager.Instance.SendSpecialAbility(sa.special, sa.x, sa.y, sa.mainType, sa.subType);
         }
 
         ArrangePieces(mr);
 
+        if (mr._battle)
+            _simulationTimeout = 0.6f;
+        else
+            _simulationTimeout = 0.2f;
+
         _gs = GameState.GS_BATTLE_SIMULATION;
-	}
+    }
 
     private void ArrangePieces(MoveResult mr)
     {
@@ -901,8 +920,8 @@ public class LogicManager : MonoBehaviour {
                 }
                 _pieceInfos[mr._toX, mr._toY] = _pieceInfos[mr._fromX, mr._fromY];
                 _pieceInfos[mr._fromX, mr._fromY] = null;
-                _pieceInfos[mr._toX, mr._toY]._x = mi._toX;
-                _pieceInfos[mr._toX, mr._toY]._y = mi._toY;
+                _pieceInfos[mr._toX, mr._toY]._x = mr._toX;
+                _pieceInfos[mr._toX, mr._toY]._y = mr._toY;
             }
             else
             {
@@ -926,11 +945,6 @@ public class LogicManager : MonoBehaviour {
             }
         }
     }
-	
-    //public void SendMovePiece(int pid, int fromX, int fromY, int toX, int toY)
-    //{
-    //    OnReceiveMovePiece(pid, fromX, fromY, toX, toY);
-    //}
 
     public void SendMoveResult(MoveResult mr)
     {
@@ -946,8 +960,8 @@ public class LogicManager : MonoBehaviour {
         string randomPieceInfo = GetRandomPieceInfo();
         CreatePiece(randomPieceInfo);
 
-        Invoke("SendUserInfo", 1.0f);
-        Invoke("SendPieceInfo", 2.0f);
+        Invoke("SendUserInfo", 0.5f);
+        Invoke("SendPieceInfo", 0.7f);
     }
 
     public void SendUserInfo()
@@ -1003,12 +1017,12 @@ public class LogicManager : MonoBehaviour {
     private void CreatePiece(string pieceInfo)
     {
         string[] aData = pieceInfo.Split('|');
-		
+
         if (aData.Length != 106)
-		{
-			Debug.Log(aData.Length);
+        {
+            Debug.Log(aData.Length);
             return;
-		}
+        }
 
         UserInfo userInfo = new UserInfo();
         userInfo.userName = aData[0];
