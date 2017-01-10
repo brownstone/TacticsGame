@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using UnityEngine.UI;
 using System.Collections.Generic;
 
 public class BoardManager : MonoBehaviour
@@ -22,6 +23,11 @@ public class BoardManager : MonoBehaviour
     public List<GameObject> _bluePiecePrefabs;
 
     public GameObject _piecePrefab;
+
+    public CanvasGroup alertCanvas;
+    private float lastAlert;
+    private bool alertActive;
+
 
     private List<GameObject> _activePieces = new List<GameObject>();
 
@@ -87,6 +93,9 @@ public class BoardManager : MonoBehaviour
         Invoke("GamePrepare", 0.5f);
         _player.userName = "brown";
         PieceMans = new PieceMan[12, 9];
+
+        AlertMsg("Welcom Tactice Game");
+
     }
 
     private void GamePrepare()
@@ -185,6 +194,7 @@ public class BoardManager : MonoBehaviour
     // Update is called once per frame
     private void Update()
     {
+        UpdateAlert();
         UpdateSelection();
         DrawBoardLine();
 
@@ -465,7 +475,6 @@ public class BoardManager : MonoBehaviour
             return;
         }
 
-        //pm.SetProperty(x, y, color, mainType, subType);
         pm.SetProperty(pm._currentX, pm._currentY, pm._color, _metaAbility.mainType, _metaAbility.subType);
     }
 
@@ -475,6 +484,7 @@ public class BoardManager : MonoBehaviour
 
         bool turn = (_player.userIndex == _turnIndex);
         OnMyTurn(turn);
+
         turn = (_opponent.userIndex == _turnIndex);
         OnOpponentTurn(turn);
 
@@ -485,13 +495,17 @@ public class BoardManager : MonoBehaviour
     private void OnMyTurn(bool on)
     {
         if (on)
-            Debug.Log("My turn");
+        {
+            AlertMsg("My turn");
+        }
     }
 
     private void OnOpponentTurn(bool on)
     {
         if (on)
-            Debug.Log("Opponent turn");
+        {
+            AlertMsg("Opponent turn");
+        }
     }
 
     public void OnReceiveUserInfo(string userInfos)
@@ -599,6 +613,30 @@ public class BoardManager : MonoBehaviour
             if (move)
             {
                 Invoke("MovePiece", 0.1f);
+            }
+        }
+    }
+
+    public void AlertMsg(string text)
+    {
+        alertCanvas.GetComponentInChildren<Text>().text = text;
+        alertCanvas.alpha = 1;
+        lastAlert = Time.time;
+        alertActive = true;
+    }
+
+    public void UpdateAlert()
+    {
+        if (alertActive)
+        {
+            float duration = Time.time - lastAlert;
+            if (duration > 0.5f)
+            {
+                alertCanvas.alpha = 1 - (duration - 0.5f);
+                if (duration > 1.5f)
+                {
+                    alertActive = false;
+                }
             }
         }
     }
